@@ -1,0 +1,2148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NeuroRead AI - 신경영상 판독</title>
+
+<!-- PWA 설정 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a5276">
+<link rel="manifest" href="data:application/json,{
+  &quot;name&quot;:&quot;NeuroRead AI&quot;,
+  &quot;short_name&quot;:&quot;NeuroRead&quot;,
+  &quot;start_url&quot;:&quot;.&quot;,
+  &quot;display&quot;:&quot;standalone&quot;,
+  &quot;background_color&quot;:&quot;%231a5276&quot;,
+  &quot;theme_color&quot;:&quot;%231a5276&quot;
+}">
+
+<style>
+/* ═══════════════════════════════════════════
+   CSS Variables & Reset
+   ═══════════════════════════════════════════ */
+:root {
+  --primary: #1a5276;
+  --primary-light: #2e86c1;
+  --primary-bg: #eaf2f8;
+  --accent: #48c9b0;
+  --emergency: #e74c3c;
+  --urgent: #e67e22;
+  --semi-urgent: #f39c12;
+  --routine: #3498db;
+  --normal: #27ae60;
+  --bg: #f5f7fa;
+  --card: #ffffff;
+  --text: #2c3e50;
+  --text-secondary: #6c757d;
+  --border: #e0e6ed;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  --primary: #5dade2;
+  --primary-light: #85c1e9;
+  --primary-bg: #1b2838;
+  --bg: #0f1923;
+  --card: #1b2838;
+  --text: #ecf0f1;
+  --text-secondary: #95a5a6;
+  --border: #2c3e50;
+  --shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══════════════════════════════════════════
+   Layout
+   ═══════════════════════════════════════════ */
+.app-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 16px 100px;
+}
+
+/* ═══════════════════════════════════════════
+   Top Bar
+   ═══════════════════════════════════════════ */
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--primary);
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.top-bar h1 {
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-bar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.top-bar-actions button {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  transition: var(--transition);
+}
+
+.top-bar-actions button:hover { background: rgba(255,255,255,0.25); }
+
+/* ═══════════════════════════════════════════
+   Bottom Navigation
+   ═══════════════════════════════════════════ */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  cursor: pointer;
+  transition: var(--transition);
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  gap: 2px;
+}
+
+.nav-item.active { color: var(--primary); }
+.nav-item .nav-icon { font-size: 22px; }
+
+/* ═══════════════════════════════════════════
+   Cards
+   ═══════════════════════════════════════════ */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  transition: var(--transition);
+}
+
+.card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ═══════════════════════════════════════════
+   Upload Area
+   ═══════════════════════════════════════════ */
+.upload-area {
+  border: 2px dashed var(--primary-light);
+  border-radius: var(--radius);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  background: var(--primary-bg);
+}
+
+.upload-area:hover, .upload-area.dragover {
+  border-color: var(--primary);
+  background: rgba(46, 134, 193, 0.1);
+  transform: scale(1.01);
+}
+
+.upload-area .icon { font-size: 48px; margin-bottom: 12px; }
+.upload-area h3 { font-size: 16px; margin-bottom: 4px; }
+.upload-area p { font-size: 13px; color: var(--text-secondary); }
+
+/* ═══════════════════════════════════════════
+   Chips / Selectors
+   ═══════════════════════════════════════════ */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.chip {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: var(--transition);
+  color: var(--text);
+}
+
+.chip.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.chip:hover:not(.active) {
+  border-color: var(--primary-light);
+  background: var(--primary-bg);
+}
+
+/* ═══════════════════════════════════════════
+   Form Elements
+   ═══════════════════════════════════════════ */
+textarea, input[type="text"], input[type="password"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--card);
+  color: var(--text);
+  transition: var(--transition);
+  resize: vertical;
+}
+
+textarea:focus, input:focus {
+  outline: none;
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 3px rgba(46,134,193,0.15);
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+
+.form-group { margin-bottom: 14px; }
+
+/* ═══════════════════════════════════════════
+   Buttons
+   ═══════════════════════════════════════════ */
+.btn {
+  padding: 14px 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  width: 100%;
+}
+
+.btn-primary:hover { background: var(--primary-light); transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+}
+
+.btn-sm { padding: 8px 16px; font-size: 13px; }
+
+.btn-danger { background: var(--emergency); color: white; }
+
+/* ═══════════════════════════════════════════
+   Preview Images
+   ═══════════════════════════════════════════ */
+.preview-grid {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.preview-item {
+  min-width: 100px;
+  height: 100px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+}
+
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-item .remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════
+   Urgency Badge
+   ═══════════════════════════════════════════ */
+.urgency-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+}
+
+.urgency-emergency { background: var(--emergency); }
+.urgency-urgent { background: var(--urgent); }
+.urgency-semi_urgent { background: var(--semi-urgent); color: #333; }
+.urgency-routine { background: var(--routine); }
+.urgency-normal { background: var(--normal); }
+
+/* ═══════════════════════════════════════════
+   Result Sections
+   ═══════════════════════════════════════════ */
+.result-section {
+  margin-bottom: 20px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--primary);
+}
+
+.impression-box {
+  background: var(--primary-bg);
+  border-left: 4px solid var(--primary);
+  padding: 16px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.7;
+  color: var(--primary);
+}
+
+.findings-text {
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+/* ═══════════════════════════════════════════
+   Warning Cards
+   ═══════════════════════════════════════════ */
+.warning-card {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.warning-critical {
+  background: #fdedec;
+  border: 1px solid var(--emergency);
+}
+
+.warning-warning {
+  background: #fef9e7;
+  border: 1px solid var(--semi-urgent);
+}
+
+.warning-info {
+  background: var(--primary-bg);
+  border: 1px solid var(--routine);
+}
+
+.warning-card .warning-icon { font-size: 20px; flex-shrink: 0; }
+.warning-card .warning-content { flex: 1; }
+.warning-card .warning-msg { font-weight: 600; font-size: 14px; }
+.warning-card .warning-detail { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ═══════════════════════════════════════════
+   Measurement Table
+   ═══════════════════════════════════════════ */
+.meas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.meas-table th {
+  background: var(--primary);
+  color: white;
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+}
+
+.meas-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.meas-table tr:nth-child(even) { background: var(--primary-bg); }
+.meas-table .abnormal { color: var(--emergency); font-weight: 700; }
+
+/* ═══════════════════════════════════════════
+   DDx Cards
+   ═══════════════════════════════════════════ */
+.ddx-card {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.ddx-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.ddx-name { font-weight: 700; font-size: 14px; }
+
+.prob-badge {
+  font-size: 11px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.prob-high { background: #fdedec; color: var(--emergency); }
+.prob-moderate { background: #fef9e7; color: #b7950b; }
+.prob-low { background: #eafaf1; color: var(--normal); }
+
+.ddx-findings { font-size: 12px; color: var(--text-secondary); }
+
+/* ═══════════════════════════════════════════
+   Treatment Cards
+   ═══════════════════════════════════════════ */
+.tx-card {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border-left: 4px solid var(--accent);
+  background: rgba(72, 201, 176, 0.06);
+  margin-bottom: 8px;
+}
+
+.tx-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.tx-content { font-size: 14px; line-height: 1.6; }
+
+/* ═══════════════════════════════════════════
+   History List
+   ═══════════════════════════════════════════ */
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  background: var(--card);
+}
+
+.history-item:hover { border-color: var(--primary-light); }
+
+.history-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.history-content { flex: 1; min-width: 0; }
+.history-title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-meta { font-size: 12px; color: var(--text-secondary); }
+
+/* ═══════════════════════════════════════════
+   Loading Spinner
+   ═══════════════════════════════════════════ */
+.loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-text { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.loading-sub { font-size: 13px; color: var(--text-secondary); }
+
+.pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ═══════════════════════════════════════════
+   Confirm Section
+   ═══════════════════════════════════════════ */
+.confirm-section {
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.confirm-section.confirmed {
+  border-color: var(--normal);
+  background: rgba(39, 174, 96, 0.05);
+}
+
+/* ═══════════════════════════════════════════
+   Teaching Mode (미래 확장용)
+   ═══════════════════════════════════════════ */
+.teaching-badge {
+  background: #8e44ad;
+  color: white;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════════════
+   Settings
+   ═══════════════════════════════════════════ */
+.settings-group {
+  margin-bottom: 20px;
+}
+
+.settings-group h3 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--primary);
+}
+
+/* ═══════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .card { padding: 14px; }
+  .upload-area { padding: 30px 16px; }
+  .top-bar h1 { font-size: 16px; }
+}
+
+@media (min-width: 768px) {
+  .app-container { padding: 0 24px 100px; }
+}
+
+/* ═══════════════════════════════════════════
+   Page Transitions
+   ═══════════════════════════════════════════ */
+.page { display: none; animation: fadeIn 0.3s ease; }
+.page.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ═══════════════════════════════════════════
+   Disclaimer
+   ═══════════════════════════════════════════ */
+.disclaimer {
+  background: #fdedec;
+  border: 1px solid var(--emergency);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--emergency);
+  text-align: center;
+  margin-top: 16px;
+}
+
+/* QR Modal */
+.modal-backdrop {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.modal {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 360px;
+  width: 90%;
+  text-align: center;
+}
+
+.modal h3 { margin-bottom: 16px; }
+
+.hidden { display: none !important; }
+
+/* Print */
+@media print {
+  .top-bar, .bottom-nav, .btn, .nav-item { display: none !important; }
+  .page { display: block !important; }
+  body { background: white; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ═══════════════════════════════════════════
+     TOP BAR
+     ═══════════════════════════════════════════ -->
+<div class="top-bar">
+  <h1>🧠 NeuroRead AI</h1>
+  <div class="top-bar-actions">
+    <button onclick="showQR()" title="QR 설치 공유">📲</button>
+    <button onclick="toggleTheme()" title="다크모드" id="themeBtn">🌙</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     PAGES
+     ═══════════════════════════════════════════ -->
+<div class="app-container">
+
+  <!-- ======= HOME ======= -->
+  <div class="page active" id="page-home">
+    <div style="height:16px"></div>
+
+    <div class="card" style="background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white;">
+      <div style="font-size:12px; opacity:0.8;">건양대학교병원</div>
+      <div style="font-size:22px; font-weight:800; margin:4px 0;">심뇌혈관센터<br>영상 AI 판독</div>
+      <div style="font-size:12px; opacity:0.7; margin-top:8px;">CT · MRI · Angiogram · Photo · Video · HTML</div>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid; grid-template-columns: repeat(4,1fr); gap:8px; margin-bottom:20px;">
+      <div class="card" style="text-align:center; padding:12px 4px;">
+        <div style="font-size:22px;">📊</div>
+        <div style="font-size:20px; font-weight:800;" id="stat-total">0</div>
+        <div style="font-size:11px; color:var(--text-secondary);">총 판독</div>
+      </div>
+      <div class="card" style="text-align:center; padding:12px 4px;">
+        <div style="font-size:22px;">✅</div>
+        <div style="font-size:20px; font-weight:800;" id="stat-confirmed">0</div>
+        <div style="font-size:11px; color:var(--text-secondary);">확인완료</div>
+      </div>
+      <div class="card" style="text-align:center; padding:12px 4px;">
+        <div style="font-size:22px;">⏳</div>
+        <div style="font-size:20px; font-weight:800;" id="stat-pending">0</div>
+        <div style="font-size:11px; color:var(--text-secondary);">미확인</div>
+      </div>
+      <div class="card" style="text-align:center; padding:12px 4px;">
+        <div style="font-size:22px;">🚨</div>
+        <div style="font-size:20px; font-weight:800;" id="stat-emergency">0</div>
+        <div style="font-size:11px; color:var(--text-secondary);">긴급</div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <h3 style="margin-bottom:12px;">빠른 판독</h3>
+    <div style="display:grid; grid-template-columns: repeat(4,1fr); gap:8px; margin-bottom:24px;">
+      <div class="card" style="text-align:center; padding:16px 4px; cursor:pointer;" onclick="quickUpload('photo')">
+        <div style="font-size:28px;">📷</div>
+        <div style="font-size:12px; font-weight:600; margin-top:4px;">사진</div>
+      </div>
+      <div class="card" style="text-align:center; padding:16px 4px; cursor:pointer;" onclick="quickUpload('camera')">
+        <div style="font-size:28px;">📸</div>
+        <div style="font-size:12px; font-weight:600; margin-top:4px;">카메라</div>
+      </div>
+      <div class="card" style="text-align:center; padding:16px 4px; cursor:pointer;" onclick="quickUpload('dicom')">
+        <div style="font-size:28px;">🏥</div>
+        <div style="font-size:12px; font-weight:600; margin-top:4px;">DICOM</div>
+      </div>
+      <div class="card" style="text-align:center; padding:16px 4px; cursor:pointer;" onclick="quickUpload('html')">
+        <div style="font-size:28px;">🌐</div>
+        <div style="font-size:12px; font-weight:600; margin-top:4px;">HTML</div>
+      </div>
+    </div>
+
+    <!-- Protocols -->
+    <h3 style="margin-bottom:12px;">전문 프로토콜</h3>
+    <div class="card" style="cursor:pointer; display:flex; align-items:center; gap:12px;" onclick="startProtocol('stroke')">
+      <div style="width:44px; height:44px; border-radius:12px; background:#fdedec; display:flex; align-items:center; justify-content:center; font-size:22px;">⚡</div>
+      <div style="flex:1;"><div style="font-weight:700;">급성 뇌졸중</div><div style="font-size:12px; color:var(--text-secondary);">ASPECTS, 대혈관폐색, 치료 시간창</div></div>
+      <div>›</div>
+    </div>
+    <div class="card" style="cursor:pointer; display:flex; align-items:center; gap:12px;" onclick="startProtocol('aneurysm')">
+      <div style="width:44px; height:44px; border-radius:12px; background:#fef9e7; display:flex; align-items:center; justify-content:center; font-size:22px;">🫧</div>
+      <div style="flex:1;"><div style="font-weight:700;">뇌동맥류</div><div style="font-size:12px; color:var(--text-secondary);">PHASES score, coiling vs clipping</div></div>
+      <div>›</div>
+    </div>
+    <div class="card" style="cursor:pointer; display:flex; align-items:center; gap:12px;" onclick="startProtocol('spine')">
+      <div style="width:44px; height:44px; border-radius:12px; background:#eaf2f8; display:flex; align-items:center; justify-content:center; font-size:22px;">🦴</div>
+      <div style="flex:1;"><div style="font-weight:700;">척추 판독</div><div style="font-size:12px; color:var(--text-secondary);">레벨별 체계적 분석, 수술 접근법</div></div>
+      <div>›</div>
+    </div>
+
+    <!-- Recent -->
+    <h3 style="margin:20px 0 12px;">최근 판독</h3>
+    <div id="recent-list"></div>
+  </div>
+
+  <!-- ======= UPLOAD / ANALYZE ======= -->
+  <div class="page" id="page-upload">
+    <div style="height:16px"></div>
+    <h2 style="margin-bottom:16px;">🔬 영상 업로드 & 판독</h2>
+
+    <!-- Source Type -->
+    <div class="chip-group" id="source-chips">
+      <div class="chip active" data-source="photo" onclick="setSource('photo')">📷 사진</div>
+      <div class="chip" data-source="camera" onclick="setSource('camera')">📸 카메라</div>
+      <div class="chip" data-source="dicom" onclick="setSource('dicom')">🏥 DICOM</div>
+      <div class="chip" data-source="video" onclick="setSource('video')">🎬 동영상</div>
+      <div class="chip" data-source="html" onclick="setSource('html')">🌐 HTML</div>
+    </div>
+
+    <!-- Upload Area -->
+    <div class="upload-area" id="uploadArea" onclick="triggerFileInput()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+      <div class="icon" id="uploadIcon">📂</div>
+      <h3 id="uploadTitle">탭하여 파일 선택</h3>
+      <p id="uploadHint">JPG, PNG, BMP, TIFF (최대 20MB)</p>
+      <div id="fileCount" style="margin-top:8px; font-weight:700; color:var(--primary); display:none;"></div>
+    </div>
+
+    <input type="file" id="fileInput" multiple accept="image/*" style="display:none" onchange="handleFiles(this.files)">
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleFiles(this.files)">
+
+    <!-- Preview -->
+    <div id="previewSection" class="hidden" style="margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-weight:700;" id="previewCount">미리보기 (0장)</span>
+        <button class="btn btn-sm btn-outline" onclick="clearFiles()">초기화</button>
+      </div>
+      <div class="preview-grid" id="previewGrid"></div>
+    </div>
+
+    <!-- Modality -->
+    <div style="margin-top:20px;">
+      <label>검사 종류</label>
+      <div class="chip-group" id="modality-chips">
+        <div class="chip active" data-mod="CT" onclick="setModality('CT')">CT</div>
+        <div class="chip" data-mod="MRI" onclick="setModality('MRI')">MRI</div>
+        <div class="chip" data-mod="Angiogram" onclick="setModality('Angiogram')">Angiogram</div>
+        <div class="chip" data-mod="X-Ray" onclick="setModality('X-Ray')">X-Ray</div>
+        <div class="chip" data-mod="Photo" onclick="setModality('Photo')">사진</div>
+      </div>
+    </div>
+
+    <!-- Body Region -->
+    <div style="margin-top:14px;">
+      <label>촬영 부위</label>
+      <div class="chip-group" id="region-chips">
+        <div class="chip active" data-region="brain" onclick="setRegion('brain')">🧠 뇌</div>
+        <div class="chip" data-region="spine_cervical" onclick="setRegion('spine_cervical')">경추</div>
+        <div class="chip" data-region="spine_thoracic" onclick="setRegion('spine_thoracic')">흉추</div>
+        <div class="chip" data-region="spine_lumbar" onclick="setRegion('spine_lumbar')">요추</div>
+        <div class="chip" data-region="cerebral_vessel" onclick="setRegion('cerebral_vessel')">🫀 뇌혈관</div>
+      </div>
+    </div>
+
+    <!-- Clinical Info -->
+    <div style="margin-top:20px;">
+      <div class="form-group">
+        <label>📋 임상 정보 (선택)</label>
+        <textarea id="clinicalInfo" rows="2" placeholder="증상, 병력, 현재 상태 등"></textarea>
+      </div>
+      <div class="form-group">
+        <label>📜 이전 판독 소견 (선택)</label>
+        <textarea id="previousFindings" rows="2" placeholder="비교 분석이 필요하면 입력"></textarea>
+      </div>
+      <div class="form-group">
+        <label>❓ 특정 확인 사항 (선택)</label>
+        <textarea id="specificQuestions" rows="2" placeholder="예: midline shift 여부, 동맥류 크기 측정"></textarea>
+      </div>
+    </div>
+
+    <!-- Protocol Extra (뇌졸중 등) -->
+    <div id="protocolExtra" class="hidden">
+      <div class="card" style="border-left: 4px solid var(--emergency);">
+        <div class="card-header">⚡ <span id="protocolName">전문 프로토콜</span></div>
+        <div class="form-group">
+          <label id="protocolLabel">발병 시각</label>
+          <input type="text" id="protocolInput" placeholder="예: 오늘 오전 6시">
+        </div>
+      </div>
+    </div>
+
+    <!-- Analyze Button -->
+    <button class="btn btn-primary" id="analyzeBtn" onclick="startAnalysis()" disabled style="margin-top:20px;">
+      🧠 AI 판독 시작
+    </button>
+  </div>
+
+  <!-- ======= RESULT ======= -->
+  <div class="page" id="page-result">
+    <div style="height:16px"></div>
+    <div id="resultContent"></div>
+  </div>
+
+  <!-- ======= HISTORY ======= -->
+  <div class="page" id="page-history">
+    <div style="height:16px"></div>
+    <h2 style="margin-bottom:16px;">📋 판독 기록</h2>
+    <div id="historyList"></div>
+    <div id="historyEmpty" class="card" style="text-align:center; padding:40px; color:var(--text-secondary);">
+      아직 판독 기록이 없습니다.<br>영상을 업로드하여 AI 판독을 시작하세요.
+    </div>
+  </div>
+
+  <!-- ======= SETTINGS ======= -->
+  <div class="page" id="page-settings">
+    <div style="height:16px"></div>
+    <h2 style="margin-bottom:16px;">⚙️ 설정</h2>
+
+    <div class="settings-group">
+      <h3>🔑 AI API 키</h3>
+      <div class="card">
+        <div class="form-group">
+          <label>기본 AI 모델</label>
+          <div class="chip-group">
+            <div class="chip active" id="ai-claude" onclick="setAI('claude')">Claude (Anthropic)</div>
+            <div class="chip" id="ai-openai" onclick="setAI('openai')">GPT-4o (OpenAI)</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Anthropic API Key</label>
+          <input type="password" id="claudeKey" placeholder="sk-ant-..." onchange="saveSettings()">
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">
+            <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>에서 발급
+          </div>
+        </div>
+        <div class="form-group">
+          <label>OpenAI API Key</label>
+          <input type="password" id="openaiKey" placeholder="sk-..." onchange="saveSettings()">
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">
+            <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>에서 발급
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="testApiKey()">🔍 API 연결 테스트</button>
+        <div id="apiTestResult" style="margin-top:8px; font-size:13px;"></div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <h3>🎨 앱 설정</h3>
+      <div class="card">
+        <div class="form-group">
+          <label>AI 판독 응답 언어</label>
+          <div class="chip-group">
+            <div class="chip active" data-lang="ko" onclick="setLang('ko')">한국어</div>
+            <div class="chip" data-lang="en" onclick="setLang('en')">English</div>
+            <div class="chip" data-lang="both" onclick="setLang('both')">한/영 병기</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <h3>📲 QR 설치 공유</h3>
+      <div class="card" style="text-align:center;">
+        <p style="font-size:13px; margin-bottom:12px;">이 앱을 다른 기기에서 열려면<br>아래 QR을 스캔하세요</p>
+        <div id="qrCodeArea" style="display:inline-block; padding:16px; background:white; border-radius:8px;"></div>
+        <div style="margin-top:12px;">
+          <button class="btn btn-sm btn-outline" onclick="copyAppUrl()">🔗 URL 복사</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <h3>💾 데이터 관리</h3>
+      <div class="card">
+        <button class="btn btn-sm btn-outline" onclick="exportData()" style="margin-bottom:8px;">📤 판독 기록 내보내기 (JSON)</button>
+        <button class="btn btn-sm btn-outline" onclick="importData()">📥 판독 기록 가져오기</button>
+        <div style="margin-top:12px;">
+          <button class="btn btn-sm btn-danger" onclick="clearAllData()">🗑️ 전체 데이터 삭제</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="text-align:center; font-size:12px; color:var(--text-secondary);">
+      NeuroRead AI v2.0 · 서버리스 · 건양대학교병원 심뇌혈관센터<br>
+      데이터는 이 기기에만 저장됩니다
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     BOTTOM NAV
+     ═══════════════════════════════════════════ -->
+<div class="bottom-nav">
+  <button class="nav-item active" onclick="goPage('home')">
+    <span class="nav-icon">🏠</span>
+    <span>홈</span>
+  </button>
+  <button class="nav-item" onclick="goPage('upload')">
+    <span class="nav-icon">🔬</span>
+    <span>판독</span>
+  </button>
+  <button class="nav-item" onclick="goPage('history')">
+    <span class="nav-icon">📋</span>
+    <span>기록</span>
+  </button>
+  <button class="nav-item" onclick="goPage('settings')">
+    <span class="nav-icon">⚙️</span>
+    <span>설정</span>
+  </button>
+</div>
+
+<!-- QR Modal -->
+<div class="modal-backdrop hidden" id="qrModal" onclick="closeQR(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>📲 QR 설치 공유</h3>
+    <div id="qrModalCode" style="padding:16px; background:white; border-radius:8px; display:inline-block; margin:12px 0;"></div>
+    <p style="font-size:13px; color:var(--text-secondary);">다른 기기에서 스캔하면<br>바로 이 앱을 사용할 수 있습니다</p>
+    <button class="btn btn-sm btn-primary" onclick="document.getElementById('qrModal').classList.add('hidden')" style="margin-top:12px;">닫기</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════ -->
+<script>
+/* ═══════════════════════════════════════════
+   State
+   ═══════════════════════════════════════════ */
+const STATE = {
+  currentPage: 'home',
+  sourceType: 'photo',
+  modality: 'CT',
+  bodyRegion: 'brain',
+  protocol: null,      // stroke, aneurysm, spine
+  files: [],           // File objects
+  base64Images: [],    // base64 strings for AI
+  analyses: JSON.parse(localStorage.getItem('neuroread_analyses') || '[]'),
+  settings: JSON.parse(localStorage.getItem('neuroread_settings') || JSON.stringify({
+    primaryAI: 'claude',
+    claudeKey: '',
+    openaiKey: '',
+    lang: 'ko',
+    theme: 'light',
+  })),
+};
+
+/* ═══════════════════════════════════════════
+   Navigation
+   ═══════════════════════════════════════════ */
+function goPage(page) {
+  STATE.currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  
+  document.querySelectorAll('.nav-item').forEach((n, i) => {
+    const pages = ['home', 'upload', 'history', 'settings'];
+    n.classList.toggle('active', pages[i] === page);
+  });
+
+  if (page === 'home') updateHomeStats();
+  if (page === 'history') renderHistory();
+  if (page === 'settings') loadSettings();
+  
+  window.scrollTo(0, 0);
+}
+
+/* ═══════════════════════════════════════════
+   Source Type
+   ═══════════════════════════════════════════ */
+function setSource(src) {
+  STATE.sourceType = src;
+  document.querySelectorAll('#source-chips .chip').forEach(c => 
+    c.classList.toggle('active', c.dataset.source === src));
+  
+  const area = document.getElementById('uploadArea');
+  const icon = document.getElementById('uploadIcon');
+  const title = document.getElementById('uploadTitle');
+  const hint = document.getElementById('uploadHint');
+  const fileInput = document.getElementById('fileInput');
+  
+  const config = {
+    photo:  { icon: '📂', title: '탭하여 사진 선택', hint: 'JPG, PNG, BMP, TIFF', accept: 'image/*', multi: true },
+    camera: { icon: '📸', title: '탭하여 촬영', hint: 'CT/MRI 화면을 직접 촬영', accept: 'image/*', multi: false },
+    dicom:  { icon: '🏥', title: '탭하여 DICOM 선택', hint: '.dcm 파일 (PACS 내보내기)', accept: '.dcm,.dicom,application/dicom', multi: true },
+    video:  { icon: '🎬', title: '탭하여 동영상 선택', hint: 'MP4, AVI, MOV', accept: 'video/*', multi: false },
+    html:   { icon: '🌐', title: '탭하여 HTML 선택', hint: 'PACS 웹뷰어 HTML 파일', accept: '.html,.htm', multi: false },
+  };
+  
+  const c = config[src] || config.photo;
+  icon.textContent = c.icon;
+  title.textContent = c.title;
+  hint.textContent = c.hint;
+  fileInput.accept = c.accept;
+  fileInput.multiple = c.multi;
+}
+
+function setModality(mod) {
+  STATE.modality = mod;
+  document.querySelectorAll('#modality-chips .chip').forEach(c =>
+    c.classList.toggle('active', c.dataset.mod === mod));
+}
+
+function setRegion(region) {
+  STATE.bodyRegion = region;
+  document.querySelectorAll('#region-chips .chip').forEach(c =>
+    c.classList.toggle('active', c.dataset.region === region));
+}
+
+/* ═══════════════════════════════════════════
+   File Handling
+   ═══════════════════════════════════════════ */
+function triggerFileInput() {
+  if (STATE.sourceType === 'camera') {
+    document.getElementById('cameraInput').click();
+  } else {
+    document.getElementById('fileInput').click();
+  }
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.add('dragover');
+}
+
+function handleDragLeave(e) {
+  document.getElementById('uploadArea').classList.remove('dragover');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadArea').classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+}
+
+async function handleFiles(fileList) {
+  if (!fileList || fileList.length === 0) return;
+  
+  const files = Array.from(fileList);
+  STATE.files = files;
+  STATE.base64Images = [];
+  
+  const previewGrid = document.getElementById('previewGrid');
+  previewGrid.innerHTML = '';
+  
+  if (STATE.sourceType === 'html') {
+    await processHtml(files[0]);
+  } else if (STATE.sourceType === 'video') {
+    await processVideo(files[0]);
+  } else {
+    for (const file of files) {
+      if (file.type.startsWith('image/') || STATE.sourceType === 'dicom') {
+        await processImage(file);
+      }
+    }
+  }
+  
+  const count = STATE.base64Images.length;
+  document.getElementById('previewSection').classList.toggle('hidden', count === 0);
+  document.getElementById('previewCount').textContent = `미리보기 (${count}장)`;
+  document.getElementById('fileCount').style.display = count > 0 ? 'block' : 'none';
+  document.getElementById('fileCount').textContent = `${count}개 이미지 준비됨`;
+  document.getElementById('analyzeBtn').disabled = count === 0;
+}
+
+async function processImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      // base64 부분만 추출
+      const base64 = dataUrl.split(',')[1];
+      STATE.base64Images.push(base64);
+      
+      // 미리보기 추가
+      const grid = document.getElementById('previewGrid');
+      const div = document.createElement('div');
+      div.className = 'preview-item';
+      div.innerHTML = `<img src="${dataUrl}" alt="preview">`;
+      grid.appendChild(div);
+      
+      resolve();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function processHtml(file) {
+  const text = await file.text();
+  const pattern = /data:image\/(?:png|jpeg|jpg|bmp);base64,([A-Za-z0-9+/=]+)/g;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    STATE.base64Images.push(match[1]);
+    
+    const grid = document.getElementById('previewGrid');
+    const div = document.createElement('div');
+    div.className = 'preview-item';
+    div.innerHTML = `<img src="data:image/png;base64,${match[1]}" alt="html-img">`;
+    grid.appendChild(div);
+  }
+  
+  if (STATE.base64Images.length === 0) {
+    alert('HTML에서 이미지를 찾을 수 없습니다. base64 인코딩된 이미지가 있는 HTML만 지원합니다.');
+  }
+}
+
+async function processVideo(file) {
+  // 동영상에서 첫 프레임 캡처
+  const video = document.createElement('video');
+  video.src = URL.createObjectURL(file);
+  video.muted = true;
+  
+  await new Promise(r => { video.onloadedmetadata = r; video.load(); });
+  
+  const duration = video.duration;
+  const frameCount = Math.min(10, Math.floor(duration / 2));
+  
+  for (let i = 0; i < frameCount; i++) {
+    const time = (duration / frameCount) * i;
+    video.currentTime = time;
+    await new Promise(r => { video.onseeked = r; });
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    
+    const dataUrl = canvas.toDataURL('image/png');
+    const base64 = dataUrl.split(',')[1];
+    STATE.base64Images.push(base64);
+    
+    const grid = document.getElementById('previewGrid');
+    const div = document.createElement('div');
+    div.className = 'preview-item';
+    div.innerHTML = `<img src="${dataUrl}" alt="frame-${i}">`;
+    grid.appendChild(div);
+  }
+  
+  URL.revokeObjectURL(video.src);
+}
+
+function clearFiles() {
+  STATE.files = [];
+  STATE.base64Images = [];
+  document.getElementById('previewGrid').innerHTML = '';
+  document.getElementById('previewSection').classList.add('hidden');
+  document.getElementById('fileCount').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = true;
+}
+
+/* ═══════════════════════════════════════════
+   Quick Upload / Protocol
+   ═══════════════════════════════════════════ */
+function quickUpload(type) {
+  goPage('upload');
+  setSource(type);
+  STATE.protocol = null;
+  document.getElementById('protocolExtra').classList.add('hidden');
+}
+
+function startProtocol(protocol) {
+  goPage('upload');
+  STATE.protocol = protocol;
+  
+  const extra = document.getElementById('protocolExtra');
+  const name = document.getElementById('protocolName');
+  const label = document.getElementById('protocolLabel');
+  const input = document.getElementById('protocolInput');
+  
+  extra.classList.remove('hidden');
+  
+  if (protocol === 'stroke') {
+    name.textContent = '급성 뇌졸중 프로토콜';
+    label.textContent = '증상 발현 시각';
+    input.placeholder = '예: 오늘 오전 6시 / 기상 시 발견';
+    setModality('CT');
+    setRegion('brain');
+  } else if (protocol === 'aneurysm') {
+    name.textContent = '뇌동맥류 평가 프로토콜';
+    label.textContent = 'SAH 여부 / Hunt-Hess Grade';
+    input.placeholder = '예: SAH (+), H-H Grade III';
+    setModality('Angiogram');
+    setRegion('cerebral_vessel');
+  } else if (protocol === 'spine') {
+    name.textContent = '척추 판독 프로토콜';
+    label.textContent = '주 증상 부위 / 신경학적 소견';
+    input.placeholder = '예: Lt L5 radiculopathy, ankle dorsiflexion 4/5';
+    setModality('MRI');
+    setRegion('spine_lumbar');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   AI ANALYSIS - THE CORE
+   ═══════════════════════════════════════════ */
+async function startAnalysis() {
+  if (STATE.base64Images.length === 0) return;
+  
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  
+  // 결과 페이지로 이동 (로딩 표시)
+  goPage('result');
+  showLoading();
+  
+  try {
+    const systemPrompt = buildSystemPrompt();
+    const userPrompt = buildUserPrompt();
+    
+    let result;
+    if (STATE.settings.primaryAI === 'claude') {
+      result = await callClaude(systemPrompt, userPrompt, STATE.base64Images);
+    } else {
+      result = await callOpenAI(systemPrompt, userPrompt, STATE.base64Images);
+    }
+    
+    // 결과 저장
+    const analysis = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      modality: STATE.modality,
+      bodyRegion: STATE.bodyRegion,
+      protocol: STATE.protocol,
+      imageCount: STATE.base64Images.length,
+      aiModel: STATE.settings.primaryAI === 'claude' ? 'Claude claude-opus-4-6' : 'GPT-4o',
+      confirmed: false,
+      physicianNotes: '',
+      ...result,
+    };
+    
+    STATE.analyses.unshift(analysis);
+    localStorage.setItem('neuroread_analyses', JSON.stringify(STATE.analyses));
+    
+    renderResult(analysis);
+    
+  } catch (error) {
+    showError(error.message);
+  }
+  
+  btn.disabled = false;
+}
+
+/* ═══════════════════════════════════════════
+   System Prompt Builder
+   ═══════════════════════════════════════════ */
+function buildSystemPrompt() {
+  const lang = STATE.settings.lang;
+  const langInstruction = lang === 'ko' ? '한국어로 답변하세요.' :
+    lang === 'en' ? 'Answer in English.' : '한국어와 영어를 병기하세요.';
+
+  let prompt = `당신은 건양대학교병원 심뇌혈관센터에서 활동하는 신경외과 영상 판독 AI 보조 시스템입니다.
+${langInstruction}
+
+## 판독 원칙
+1. 체계적 접근: 모든 구조물을 순서대로 확인
+2. 놓치지 않기: 주 병변 외 부수적 소견도 기술
+3. 측정 포함: 크기, 위치, HU값(CT), 신호강도(MRI) 등 정량적 데이터
+4. 임상 연관: 증상과의 연관성 분석
+5. 응급 소견 강조: 즉시 조치 필요 소견은 최우선 보고
+
+## CT 뇌 체크리스트
+- 두개골/안면골 골절
+- 뇌실질 밀도 이상 (출혈, 경색, 석회화, 종괴)
+- 뇌실 크기/대칭성/수두증
+- 중심선 편위 (midline shift)
+- 경막외/경막하/지주막하 출혈
+- 기저조 개방 여부
+- 뇌조직 탈출 소견
+
+## MRI 뇌 체크리스트
+- 시퀀스별 신호강도 분석
+- DWI/ADC mismatch → 급성 경색
+- FLAIR-DWI mismatch → 치료 시간창
+- 미세출혈 (SWI/GRE)
+- 조영증강 패턴
+
+## 혈관 조영술 체크리스트
+- 동맥류 (위치, 크기, neck, D/N ratio, 방향, PHASES score)
+- 혈관 협착/폐색 (NASCET 기준)
+- AVM/AVF (Spetzler-Martin Grade)
+- 혈관 경련, 측부순환
+
+## 척추 체크리스트
+- 정렬, 추체/디스크 높이
+- 디스크 탈출 (유형, 방향, 크기)
+- 척수/신경근 압박 정도
+- 척추관 협착 (중심, 외측, 추간공)
+- 골절 안정성, 인대 손상`;
+
+  // 프로토콜별 추가
+  if (STATE.protocol === 'stroke') {
+    prompt += `\n\n## 급성 뇌졸중 긴급 프로토콜
+- ASPECTS 점수 즉시 산출
+- Early ischemic change 상세 기술
+- Hyperdense vessel sign → 폐색 혈관 특정
+- 대혈관 폐색 여부 및 위치 (ICA, MCA M1/M2, ACA, BA, PCA)
+- 출혈 변환 여부
+- IV tPA 적응증 (4.5시간 이내)
+- 혈전제거술 적응증 (24시간 이내, DAWN/DEFUSE3 기준)
+- 치료 시간창 내 여부 명확히 판단`;
+  } else if (STATE.protocol === 'aneurysm') {
+    prompt += `\n\n## 뇌동맥류 평가 프로토콜
+- 위치 (정확한 혈관 분지점)
+- 크기 (최대경, dome height, neck width)
+- Dome-to-neck ratio
+- 방향 (dome pointing direction)
+- 형태 (saccular, fusiform, dissecting)
+- bleb/lobulation 유무
+- PHASES score 계산 필수
+- 치료: coiling vs clipping vs flow diverter 추천
+- 하이브리드 수술실 활용 시나리오`;
+  } else if (STATE.protocol === 'spine') {
+    prompt += `\n\n## 척추 전문 판독 프로토콜
+- 각 레벨별 체계적 판독 (상위→하위)
+- 디스크 분류: bulging, protrusion, extrusion, sequestration
+- 방향: central, paracentral, foraminal, far lateral
+- Pfirrmann 등급 (MRI)
+- 척수 T2 고신호 여부
+- 불안정성 평가
+- 수술 접근법: anterior vs posterior vs lateral`;
+  }
+
+  prompt += `\n\n## 출력 형식 (반드시 이 JSON 형식으로만 출력)
+\`\`\`json
+{
+  "findings": "상세 소견 (여러 줄 가능)",
+  "impression": "인상/진단 (핵심 요약)",
+  "urgency": "emergency|urgent|semi_urgent|routine|normal",
+  "confidence_score": 0.85,
+  "warnings": [
+    {"level": "critical|warning|info", "category": "카테고리", "message": "내용", "detail": "상세 설명"}
+  ],
+  "measurements": [
+    {"name": "항목", "value": "값", "unit": "단위", "normal_range": "정상범위", "is_abnormal": false}
+  ],
+  "differential_diagnosis": [
+    {"diagnosis": "진단명", "probability": "high|moderate|low", "supporting_findings": ["근거1","근거2"], "key_differentiators": "감별 포인트"}
+  ],
+  "treatment_plan": {
+    "surgical_options": "수술적 치료 옵션",
+    "interventional_options": "혈관내치료/하이브리드 수술실 옵션",
+    "medical_treatment": "약물 치료",
+    "follow_up_plan": "추적 계획",
+    "lifestyle_recommendations": "생활 관리"
+  },
+  "references": [
+    {"guideline": "가이드라인명", "source": "출처", "year": 2024, "relevance": "관련성"}
+  ]
+}
+\`\`\``;
+
+  return prompt;
+}
+
+function buildUserPrompt() {
+  let prompt = `## 영상 정보
+- 검사 종류: ${STATE.modality}
+- 촬영 부위: ${STATE.bodyRegion}
+- 이미지 수: ${STATE.base64Images.length}장
+- 소스: ${STATE.sourceType}`;
+
+  const clinical = document.getElementById('clinicalInfo').value.trim();
+  const previous = document.getElementById('previousFindings').value.trim();
+  const questions = document.getElementById('specificQuestions').value.trim();
+  const protocolInput = document.getElementById('protocolInput').value.trim();
+
+  if (clinical) prompt += `\n\n## 임상 정보\n${clinical}`;
+  if (previous) prompt += `\n\n## 이전 판독 소견\n${previous}`;
+  
+  if (STATE.protocol && protocolInput) {
+    const labels = { stroke: '증상 발현', aneurysm: 'SAH/Grade', spine: '신경학적 소견' };
+    prompt += `\n\n## ${labels[STATE.protocol]}\n${protocolInput}`;
+  }
+  
+  if (questions) prompt += `\n\n## 확인 요청 사항\n${questions}`;
+
+  prompt += `\n\n## 요청
+위 영상들을 체계적으로 판독하고, JSON 형식으로 출력해주세요.
+수술적/약물적/혈관내치료 옵션을 모두 고려하고, 하이브리드 수술실 활용 가능성도 포함해주세요.
+신경외과 전문의가 확인할 것이므로 전문 용어를 사용하되, 근거 중심으로 기술하세요.`;
+
+  return prompt;
+}
+
+/* ═══════════════════════════════════════════
+   Claude API Call
+   ═══════════════════════════════════════════ */
+async function callClaude(systemPrompt, userPrompt, images) {
+  const apiKey = STATE.settings.claudeKey;
+  if (!apiKey) throw new Error('Claude API 키가 설정되지 않았습니다. 설정 탭에서 입력하세요.');
+
+  // 이미지 콘텐츠 빌드 (최대 20장)
+  const maxImages = Math.min(images.length, 20);
+  const content = [];
+  
+  for (let i = 0; i < maxImages; i++) {
+    const mediaType = detectMediaType(images[i]);
+    content.push({
+      type: 'image',
+      source: { type: 'base64', media_type: mediaType, data: images[i] },
+    });
+    content.push({
+      type: 'text',
+      text: `[이미지 ${i + 1}/${maxImages}]`,
+    });
+  }
+  
+  content.push({ type: 'text', text: userPrompt });
+
+  updateLoading('Claude AI가 영상을 분석 중입니다...', 0.4);
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-6',
+      max_tokens: 8192,
+      system: systemPrompt,
+      messages: [{ role: 'user', content }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(`Claude API 오류 (${response.status}): ${err.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  const text = data.content[0].text;
+
+  updateLoading('판독 결과 분석 중...', 0.8);
+  return parseAIResponse(text);
+}
+
+/* ═══════════════════════════════════════════
+   OpenAI API Call
+   ═══════════════════════════════════════════ */
+async function callOpenAI(systemPrompt, userPrompt, images) {
+  const apiKey = STATE.settings.openaiKey;
+  if (!apiKey) throw new Error('OpenAI API 키가 설정되지 않았습니다. 설정 탭에서 입력하세요.');
+
+  const maxImages = Math.min(images.length, 20);
+  const content = [];
+  
+  for (let i = 0; i < maxImages; i++) {
+    const mediaType = detectMediaType(images[i]);
+    content.push({
+      type: 'image_url',
+      image_url: { url: `data:${mediaType};base64,${images[i]}`, detail: 'high' },
+    });
+  }
+  
+  content.push({ type: 'text', text: userPrompt });
+
+  updateLoading('GPT-4o가 영상을 분석 중입니다...', 0.4);
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content },
+      ],
+      max_tokens: 8192,
+      temperature: 0.2,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(`OpenAI API 오류 (${response.status}): ${err.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices[0].message.content;
+
+  updateLoading('판독 결과 분석 중...', 0.8);
+  return parseAIResponse(text);
+}
+
+/* ═══════════════════════════════════════════
+   Parse AI Response
+   ═══════════════════════════════════════════ */
+function parseAIResponse(text) {
+  // JSON 블록 추출
+  const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+  let jsonStr;
+  
+  if (jsonMatch) {
+    jsonStr = jsonMatch[1];
+  } else {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      jsonStr = text.substring(start, end + 1);
+    } else {
+      return {
+        findings: text,
+        impression: 'AI 응답을 파싱할 수 없습니다. 원문을 확인하세요.',
+        urgency: 'routine',
+        confidence_score: 0.3,
+        warnings: [{ level: 'warning', category: 'system', message: 'JSON 파싱 실패', detail: '원문 소견을 직접 확인해주세요.' }],
+        measurements: [],
+        differential_diagnosis: [],
+        treatment_plan: {},
+        references: [],
+        raw_response: text,
+      };
+    }
+  }
+
+  try {
+    const result = JSON.parse(jsonStr);
+    // 기본값 보장
+    return {
+      findings: result.findings || '',
+      impression: result.impression || '',
+      urgency: result.urgency || 'routine',
+      confidence_score: result.confidence_score || 0.5,
+      warnings: result.warnings || [],
+      measurements: result.measurements || [],
+      differential_diagnosis: result.differential_diagnosis || [],
+      treatment_plan: result.treatment_plan || {},
+      references: result.references || [],
+    };
+  } catch (e) {
+    return {
+      findings: text,
+      impression: 'JSON 파싱 오류 - 원문 확인 필요',
+      urgency: 'routine',
+      confidence_score: 0.3,
+      warnings: [{ level: 'warning', category: 'system', message: 'JSON 파싱 실패: ' + e.message }],
+      measurements: [],
+      differential_diagnosis: [],
+      treatment_plan: {},
+      references: [],
+      raw_response: text,
+    };
+  }
+}
+
+function detectMediaType(base64Str) {
+  try {
+    const bytes = atob(base64Str.substring(0, 16));
+    if (bytes.charCodeAt(0) === 0x89 && bytes.charCodeAt(1) === 0x50) return 'image/png';
+    if (bytes.charCodeAt(0) === 0xFF && bytes.charCodeAt(1) === 0xD8) return 'image/jpeg';
+  } catch (_) {}
+  return 'image/png';
+}
+
+/* ═══════════════════════════════════════════
+   Render Result
+   ═══════════════════════════════════════════ */
+function showLoading() {
+  document.getElementById('resultContent').innerHTML = `
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">AI 판독 준비 중...</div>
+      <div class="loading-sub" id="loadingSub">${STATE.modality} · ${STATE.bodyRegion} · ${STATE.base64Images.length}개 이미지</div>
+      <div style="width:100%; max-width:300px; height:6px; background:var(--border); border-radius:3px; margin-top:16px;">
+        <div id="progressBar" style="width:10%; height:100%; background:var(--primary); border-radius:3px; transition: width 0.5s;"></div>
+      </div>
+    </div>`;
+}
+
+function updateLoading(text, progress) {
+  const lt = document.getElementById('loadingText');
+  const pb = document.getElementById('progressBar');
+  if (lt) lt.textContent = text;
+  if (pb) pb.style.width = (progress * 100) + '%';
+}
+
+function showError(message) {
+  document.getElementById('resultContent').innerHTML = `
+    <div class="loading-overlay">
+      <div style="font-size:64px; margin-bottom:16px;">❌</div>
+      <div class="loading-text">판독 실패</div>
+      <div class="loading-sub" style="margin-bottom:20px; max-width:400px;">${message}</div>
+      <button class="btn btn-primary" onclick="goPage('upload')" style="max-width:200px;">다시 시도</button>
+    </div>`;
+}
+
+function renderResult(a) {
+  const urgencyLabels = {
+    emergency: '🔴 긴급 (즉시 처치)',
+    urgent: '🟠 준긴급 (24시간 내)',
+    semi_urgent: '🟡 반긴급 (1주 내)',
+    routine: '🔵 정기 (추적관찰)',
+    normal: '🟢 정상',
+  };
+
+  let html = '';
+
+  // 긴급도 배너
+  html += `<div class="urgency-badge urgency-${a.urgency}" style="margin-bottom:16px;">
+    ${urgencyLabels[a.urgency] || a.urgency}
+    <span style="margin-left:8px; font-size:12px; opacity:0.8;">확신도 ${Math.round((a.confidence_score||0)*100)}%</span>
+  </div>`;
+
+  // Critical Warnings
+  const criticals = (a.warnings || []).filter(w => w.level === 'critical');
+  if (criticals.length > 0) {
+    html += `<div class="result-section">`;
+    criticals.forEach(w => {
+      html += `<div class="warning-card warning-critical">
+        <div class="warning-icon">🚨</div>
+        <div class="warning-content">
+          <div class="warning-msg">[${w.category||''}] ${w.message||''}</div>
+          ${w.detail ? `<div class="warning-detail">→ ${w.detail}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Impression
+  html += `<div class="result-section">
+    <div class="section-title">🎯 인상 (Impression)</div>
+    <div class="impression-box">${escapeHtml(a.impression || '')}</div>
+  </div>`;
+
+  // Findings
+  html += `<div class="result-section">
+    <div class="section-title">📋 소견 (Findings)</div>
+    <div class="card"><div class="findings-text">${escapeHtml(a.findings || '')}</div></div>
+  </div>`;
+
+  // Measurements
+  if (a.measurements && a.measurements.length > 0) {
+    html += `<div class="result-section">
+      <div class="section-title">📐 측정값</div>
+      <div class="card" style="overflow-x:auto; padding:8px;">
+        <table class="meas-table">
+          <thead><tr><th>항목</th><th>값</th><th>단위</th><th>정상범위</th><th>이상</th></tr></thead>
+          <tbody>`;
+    a.measurements.forEach(m => {
+      const abnormalClass = m.is_abnormal ? 'abnormal' : '';
+      html += `<tr>
+        <td>${escapeHtml(m.name||'')}</td>
+        <td class="${abnormalClass}"><b>${escapeHtml(String(m.value||''))}</b></td>
+        <td>${escapeHtml(m.unit||'')}</td>
+        <td>${escapeHtml(m.normal_range||'N/A')}</td>
+        <td class="${abnormalClass}">${m.is_abnormal ? '⚠️ 이상' : '정상'}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div></div>`;
+  }
+
+  // DDx
+  if (a.differential_diagnosis && a.differential_diagnosis.length > 0) {
+    html += `<div class="result-section">
+      <div class="section-title">🔬 감별진단</div>`;
+    a.differential_diagnosis.forEach((dx, i) => {
+      const probClass = `prob-${dx.probability||'low'}`;
+      html += `<div class="ddx-card">
+        <div class="ddx-header">
+          <div class="ddx-name">${i+1}. ${escapeHtml(dx.diagnosis||'')}</div>
+          <span class="prob-badge ${probClass}">${dx.probability||''}</span>
+        </div>
+        <div class="ddx-findings">근거: ${(dx.supporting_findings||[]).map(escapeHtml).join(', ')}</div>
+        ${dx.key_differentiators ? `<div class="ddx-findings" style="margin-top:2px;">감별: ${escapeHtml(dx.key_differentiators)}</div>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Treatment
+  const tx = a.treatment_plan || {};
+  const txFields = [
+    ['🔪 수술적 치료', tx.surgical_options],
+    ['🫀 혈관내치료/하이브리드', tx.interventional_options],
+    ['💊 약물 치료', tx.medical_treatment],
+    ['📅 추적 계획', tx.follow_up_plan],
+    ['🏃 생활 관리', tx.lifestyle_recommendations],
+  ];
+  
+  const hasTx = txFields.some(([_, v]) => v);
+  if (hasTx) {
+    html += `<div class="result-section">
+      <div class="section-title">💊 치료방향</div>`;
+    txFields.forEach(([label, value]) => {
+      if (value) {
+        html += `<div class="tx-card">
+          <div class="tx-label">${label}</div>
+          <div class="tx-content">${escapeHtml(value)}</div>
+        </div>`;
+      }
+    });
+    html += `</div>`;
+  }
+
+  // All Warnings
+  if (a.warnings && a.warnings.length > 0) {
+    html += `<div class="result-section">
+      <div class="section-title">⚠️ 전체 주의사항</div>`;
+    a.warnings.forEach(w => {
+      const wClass = `warning-${w.level||'info'}`;
+      const wIcon = w.level === 'critical' ? '🔴' : (w.level === 'warning' ? '🟡' : '🔵');
+      html += `<div class="warning-card ${wClass}">
+        <div class="warning-icon">${wIcon}</div>
+        <div class="warning-content">
+          <div class="warning-msg">[${escapeHtml(w.category||'')}] ${escapeHtml(w.message||'')}</div>
+          ${w.detail ? `<div class="warning-detail">→ ${escapeHtml(w.detail)}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // References
+  if (a.references && a.references.length > 0) {
+    html += `<div class="result-section">
+      <div class="section-title">📚 참고 가이드라인</div>
+      <div class="card">`;
+    a.references.forEach(r => {
+      html += `<div style="font-size:12px; color:var(--text-secondary); margin-bottom:4px;">
+        • ${escapeHtml(r.guideline||'')} (${escapeHtml(r.source||'')}, ${r.year||''})
+        ${r.relevance ? `<br>&nbsp;&nbsp;관련성: ${escapeHtml(r.relevance)}` : ''}
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Physician Confirm
+  html += `<div class="confirm-section ${a.confirmed ? 'confirmed' : ''}" id="confirmSection">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+      <span style="font-size:18px;">${a.confirmed ? '✅' : '⬜'}</span>
+      <b>전문의 확인</b>
+      ${a.confirmed ? '<span style="color:var(--normal); font-size:13px;">확인 완료</span>' : '<span style="color:var(--semi-urgent); font-size:13px;">미확인</span>'}
+    </div>
+    <div class="form-group">
+      <textarea id="physicianNotes" rows="2" placeholder="전문의 소견/수정사항 입력">${escapeHtml(a.physicianNotes||'')}</textarea>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-sm ${a.confirmed ? 'btn-outline' : 'btn-primary'}" onclick="confirmAnalysis('${a.id}')">
+        ${a.confirmed ? '수정' : '✅ 확인 완료'}
+      </button>
+      <button class="btn btn-sm btn-outline" onclick="printResult()">🖨️ 인쇄</button>
+      <button class="btn btn-sm btn-outline" onclick="shareResult('${a.id}')">📤 공유</button>
+    </div>
+  </div>`;
+
+  // Meta
+  html += `<div class="card" style="font-size:12px; color:var(--text-secondary); margin-top:16px;">
+    AI 모델: ${a.aiModel||''} · 처리시간: ${a.processingTimeSec ? a.processingTimeSec.toFixed(1)+'초' : 'N/A'} · 
+    이미지: ${a.imageCount||0}장 · ${new Date(a.timestamp).toLocaleString('ko-KR')}
+  </div>`;
+
+  // Disclaimer
+  html += `<div class="disclaimer">
+    ⚠️ 본 AI 판독은 참고용이며, 최종 진단 및 치료 결정은 담당 전문의(신경외과)의 판단에 따라야 합니다.
+  </div>`;
+
+  document.getElementById('resultContent').innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════
+   Confirm / Print / Share
+   ═══════════════════════════════════════════ */
+function confirmAnalysis(id) {
+  const notes = document.getElementById('physicianNotes').value;
+  const idx = STATE.analyses.findIndex(a => a.id === id);
+  if (idx !== -1) {
+    STATE.analyses[idx].confirmed = true;
+    STATE.analyses[idx].physicianNotes = notes;
+    localStorage.setItem('neuroread_analyses', JSON.stringify(STATE.analyses));
+    renderResult(STATE.analyses[idx]);
+  }
+}
+
+function printResult() {
+  window.print();
+}
+
+function shareResult(id) {
+  const a = STATE.analyses.find(x => x.id === id);
+  if (!a) return;
+  
+  const text = `[NeuroRead AI 판독]\n\n인상: ${a.impression}\n\n소견: ${a.findings}\n\n긴급도: ${a.urgency}\n\n${new Date(a.timestamp).toLocaleString('ko-KR')}`;
+  
+  if (navigator.share) {
+    navigator.share({ title: 'NeuroRead AI 판독 결과', text });
+  } else {
+    navigator.clipboard.writeText(text).then(() => alert('클립보드에 복사되었습니다.'));
+  }
+}
+
+/* ═══════════════════════════════════════════
+   History
+   ═══════════════════════════════════════════ */
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const empty = document.getElementById('historyEmpty');
+  
+  if (STATE.analyses.length === 0) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  
+  empty.classList.add('hidden');
+  
+  list.innerHTML = STATE.analyses.map(a => {
+    const urgencyColors = {
+      emergency: 'var(--emergency)', urgent: 'var(--urgent)',
+      semi_urgent: 'var(--semi-urgent)', routine: 'var(--routine)', normal: 'var(--normal)',
+    };
+    const color = urgencyColors[a.urgency] || 'grey';
+    const date = new Date(a.timestamp).toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    const impression = (a.impression || '').substring(0, 50) + ((a.impression||'').length > 50 ? '...' : '');
+    
+    return `<div class="history-item" onclick="viewAnalysis('${a.id}')">
+      <div class="history-dot" style="background:${color};"></div>
+      <div class="history-content">
+        <div class="history-title">${escapeHtml(impression)}</div>
+        <div class="history-meta">${a.modality||''} · ${a.bodyRegion||''} · ${a.aiModel||''} · ${date} ${a.confirmed ? '✅' : ''}</div>
+      </div>
+      <div style="font-size:18px; color:var(--text-secondary);">›</div>
+    </div>`;
+  }).join('');
+}
+
+function viewAnalysis(id) {
+  const a = STATE.analyses.find(x => x.id === id);
+  if (a) {
+    goPage('result');
+    renderResult(a);
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Home Stats
+   ═══════════════════════════════════════════ */
+function updateHomeStats() {
+  const all = STATE.analyses;
+  document.getElementById('stat-total').textContent = all.length;
+  document.getElementById('stat-confirmed').textContent = all.filter(a => a.confirmed).length;
+  document.getElementById('stat-pending').textContent = all.filter(a => !a.confirmed).length;
+  document.getElementById('stat-emergency').textContent = all.filter(a => a.urgency === 'emergency' || a.urgency === 'urgent').length;
+  
+  // Recent list
+  const recent = all.slice(0, 3);
+  const recentEl = document.getElementById('recent-list');
+  
+  if (recent.length === 0) {
+    recentEl.innerHTML = '<div class="card" style="text-align:center; padding:24px; color:var(--text-secondary); font-size:14px;">아직 판독 기록이 없습니다</div>';
+    return;
+  }
+  
+  recentEl.innerHTML = recent.map(a => {
+    const urgencyColors = { emergency:'var(--emergency)', urgent:'var(--urgent)', semi_urgent:'var(--semi-urgent)', routine:'var(--routine)', normal:'var(--normal)' };
+    const color = urgencyColors[a.urgency] || 'grey';
+    const impression = (a.impression||'').substring(0, 40) + ((a.impression||'').length > 40 ? '...' : '');
+    const date = new Date(a.timestamp).toLocaleString('ko-KR', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+    
+    return `<div class="history-item" onclick="viewAnalysis('${a.id}')">
+      <div class="history-dot" style="background:${color};"></div>
+      <div class="history-content">
+        <div class="history-title">${escapeHtml(impression)}</div>
+        <div class="history-meta">${a.modality||''} · ${date} ${a.confirmed?'✅':''}</div>
+      </div>
+      <div>›</div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════
+   Settings
+   ═══════════════════════════════════════════ */
+function loadSettings() {
+  const s = STATE.settings;
+  document.getElementById('claudeKey').value = s.claudeKey || '';
+  document.getElementById('openaiKey').value = s.openaiKey || '';
+  
+  document.getElementById('ai-claude').classList.toggle('active', s.primaryAI === 'claude');
+  document.getElementById('ai-openai').classList.toggle('active', s.primaryAI === 'openai');
+  
+  document.querySelectorAll('[data-lang]').forEach(c =>
+    c.classList.toggle('active', c.dataset.lang === s.lang));
+}
+
+function setAI(ai) {
+  STATE.settings.primaryAI = ai;
+  document.getElementById('ai-claude').classList.toggle('active', ai === 'claude');
+  document.getElementById('ai-openai').classList.toggle('active', ai === 'openai');
+  saveSettings();
+}
+
+function setLang(lang) {
+  STATE.settings.lang = lang;
+  document.querySelectorAll('[data-lang]').forEach(c =>
+    c.classList.toggle('active', c.dataset.lang === lang));
+  saveSettings();
+}
+
+function saveSettings() {
+  STATE.settings.claudeKey = document.getElementById('claudeKey').value;
+  STATE.settings.openaiKey = document.getElementById('openaiKey').value;
+  localStorage.setItem('neuroread_settings', JSON.stringify(STATE.settings));
+}
+
+async function testApiKey() {
+  const resultEl = document.getElementById('apiTestResult');
+  resultEl.innerHTML = '<span class="pulse">🔄 테스트 중...</span>';
+  
+  try {
+    if (STATE.settings.primaryAI === 'claude') {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': STATE.settings.claudeKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-opus-4-6',
+          max_tokens: 50,
+          messages: [{ role: 'user', content: 'Say OK' }],
+        }),
+      });
+      if (resp.ok) {
+        resultEl.innerHTML = '<span style="color:var(--normal);">✅ Claude API 연결 성공!</span>';
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        resultEl.innerHTML = `<span style="color:var(--emergency);">❌ 실패: ${err.error?.message || resp.statusText}</span>`;
+      }
+    } else {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${STATE.settings.openaiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [{ role: 'user', content: 'Say OK' }],
+          max_tokens: 10,
+        }),
+      });
+      if (resp.ok) {
+        resultEl.innerHTML = '<span style="color:var(--normal);">✅ OpenAI API 연결 성공!</span>';
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        resultEl.innerHTML = `<span style="color:var(--emergency);">❌ 실패: ${err.error?.message || resp.statusText}</span>`;
+      }
+    }
+  } catch (e) {
+    resultEl.innerHTML = `<span style="color:var(--emergency);">❌ 연결 실패: ${e.message}</span>`;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Theme
+   ═══════════════════════════════════════════ */
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '☀️' : '🌙';
+  STATE.settings.theme = next;
+  saveSettings();
+}
+
+/* ═══════════════════════════════════════════
+   QR Code (간이 생성)
+   ═══════════════════════════════════════════ */
+function showQR() {
+  document.getElementById('qrModal').classList.remove('hidden');
+  generateQR('qrModalCode');
+}
+
+function closeQR(e) {
+  if (e.target.id === 'qrModal') {
+    document.getElementById('qrModal').classList.add('hidden');
+  }
+}
+
+function generateQR(containerId) {
+  const url = window.location.href;
+  const container = document.getElementById(containerId);
+  // 간이 QR: QR API 사용
+  container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}" alt="QR Code" style="border-radius:8px;">
+    <div style="font-size:11px; color:var(--text-secondary); margin-top:8px; word-break:break-all;">${url}</div>`;
+}
+
+function copyAppUrl() {
+  navigator.clipboard.writeText(window.location.href).then(() => alert('URL이 복사되었습니다!'));
+}
+
+/* ═══════════════════════════════════════════
+   Data Export / Import
+   ═══════════════════════════════════════════ */
+function exportData() {
+  const data = JSON.stringify(STATE.analyses, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `neuroread_export_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const imported = JSON.parse(text);
+      if (Array.isArray(imported)) {
+        STATE.analyses = [...imported, ...STATE.analyses];
+        localStorage.setItem('neuroread_analyses', JSON.stringify(STATE.analyses));
+        alert(`${imported.length}개 기록을 가져왔습니다.`);
+        renderHistory();
+      }
+    } catch (e) {
+      alert('JSON 파일을 읽을 수 없습니다: ' + e.message);
+    }
+  };
+  input.click();
+}
+
+function clearAllData() {
+  if (confirm('모든 판독 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+    STATE.analyses = [];
+    localStorage.removeItem('neuroread_analyses');
+    renderHistory();
+    updateHomeStats();
+    alert('전체 데이터가 삭제되었습니다.');
+  }
+}
+
+/* ═══════════════════════════════════════════
+   Utility
+   ═══════════════════════════════════════════ */
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+
+/* ═══════════════════════════════════════════
+   Init
+   ═══════════════════════════════════════════ */
+(function init() {
+  // 테마 복원
+  if (STATE.settings.theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.getElementById('themeBtn').textContent = '☀️';
+  }
+  
+  // 홈 통계 업데이트
+  updateHomeStats();
+  
+  // 설정 페이지 QR
+  setTimeout(() => generateQR('qrCodeArea'), 500);
+})();
+</script>
+
+</body>
+</html>
